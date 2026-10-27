@@ -1,3 +1,5 @@
+# This code was developed with substantial assistance from OpenAI's ChatGPT. The code was reviewed and adapted by the author.
+
 set_age_and_sex <- function(StartPop, n_total) {
 
   # Prepeare to set age and sex

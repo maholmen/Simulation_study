@@ -1,3 +1,5 @@
+# This code was substantially generated with assistance from OpenAI's ChatGPT and subsequently reviewed and adapted by the author.
+
 #!/bin/bash
 
 ############ SLURM arguments #############

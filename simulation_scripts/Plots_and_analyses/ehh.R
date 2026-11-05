@@ -253,14 +253,15 @@ EHH <- ggplot(ehh_plot_data,
     breaks = seq(-80, 120, by = 20)
   )
 
-EHH
 ggsave(
   file.path(base_dir, "EHH.png"),
   EHH,
-  width = 12,
-  height = 14,
-  dpi = 300
+  width = 18,
+  height = 25,
+  units = "cm",
+  dpi = 600
 )
+
 
 
 summary_tbl <- ehh_plot_data %>%

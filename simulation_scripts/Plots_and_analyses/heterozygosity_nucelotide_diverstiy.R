@@ -304,3 +304,259 @@ Pi_tables <- process_metric(
   output_prefix = "PI"
 )
 
+
+## PLOTTING 
+HO <- read.csv(
+  file.path(base_dir, "HO_relative_change.csv"),
+  check.names = FALSE
+)
+
+PI <- read.csv(
+  file.path(base_dir, "PI_relative_change.csv"),
+  check.names = FALSE
+)
+
+# --------------------------------------------------
+# FUNCTION TO PREPARE DATA
+# --------------------------------------------------
+
+prepare_plot_data <- function(df, metric_name){
+  
+  df_long <- df %>%
+    pivot_longer(
+      cols = c("ORF","Locus","500Kb","2Mb"),
+      names_to = "Region",
+      values_to = "Value"
+    ) %>%
+    filter(Scenario != "WT+225Y Hom ♂")
+  
+  df_long <- df_long %>%
+    mutate(
+      Mean = as.numeric(
+        str_extract(
+          Value,
+          "^-?[0-9.]+"
+        )
+      ),
+      
+      SD = as.numeric(
+        str_extract(
+          Value,
+          "(?<=± )[-0-9.]+"
+        )
+      )
+    )
+  
+  df_long$Region <- factor(
+    df_long$Region,
+    levels = c(
+      "ORF",
+      "Locus",
+      "500Kb",
+      "2Mb"
+    )
+  )
+  
+  df_long$Metric <- metric_name
+  
+  return(df_long)
+}
+
+# --------------------------------------------------
+# CREATE DATASET
+# --------------------------------------------------
+
+HO_long <- prepare_plot_data(HO, "Observed heterozygosity (Hₒ)")
+PI_long <- prepare_plot_data(PI, "Nucleotide diversity (π)")
+
+
+# set colors: 
+scenario_cols <- c(
+  "None"          = "#000000",  # black
+  "WT Hom ♂"      = "#0072B2",  # blue
+  "WT All ♂"      = "#D55E00",  # vermillion
+  "WT Hom ♂♀"     = "#56B4E9",  # sky blue
+  "WT All ♂♀"     = "#CC79A7",  # reddish purple
+  "↓♂"            = "#009E73",  # bluish green
+  "↓N"            = "#E69F00",  # orange
+  "↓N = 116"      = "#999999",  # grey
+  "WT → recover"  = "#F0E442"   # yellow
+)
+
+
+scenario_order <- c(
+  "None",
+  "WT Hom ♂",
+  "WT Hom ♂♀",
+  "WT All ♂",
+  "WT All ♂♀",
+  "↓♂",
+  "↓N",
+  "↓N = 116",
+  "WT → recover"
+)
+
+
+
+HO_long$Region <- factor(
+  HO_long$Region,
+  levels = c("ORF","Locus","500Kb","2Mb"),
+  labels = c(
+    "ORF\n(Hₒ=0.30)",
+    "Locus\n(Hₒ=0.36)",
+    "±250 Kb\n(Hₒ=0.31)",
+    "±1 Mb\n(Hₒ=0.32)"
+  )
+)
+
+HO_long$Scenario <- factor(
+  HO_long$Scenario,
+  levels = scenario_order
+)
+
+PI_long$Region <- factor(
+  PI_long$Region,
+  levels = c("ORF","Locus","500Kb","2Mb"),
+  labels = c(
+    "ORF\n(π=0.007 x 10⁻³)",
+    "Locus\n(π=1.01 x 10⁻³)",
+    "±250 Kb\n(π=0.95 x 10⁻³)",
+    "±1 Mb\n(π=1.20 x 10⁻³)"
+  )
+)
+
+PI_long$Scenario <- factor(
+  PI_long$Scenario,
+  levels = scenario_order
+)
+
+
+# -----------------------------
+# Hₒ plot
+# -----------------------------
+
+p_HO <- ggplot(
+  HO_long,
+  aes(
+    x = Region,
+    y = Mean,
+    colour = Scenario,
+    group = Scenario
+  )
+) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    colour = "black"
+  ) +
+  geom_line(linewidth = 0.5) +
+  geom_point(size = 1.5) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Relative change in Hₒ (%) over 20 years",
+    title = "Observed heterozygosity (Hₒ)"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 11),
+    plot.title = element_text(
+      size = 11,
+      face = "plain"
+    ),
+    legend.position = "none"
+  ) + 
+  scale_colour_manual(values = scenario_cols) + 
+  scale_y_continuous(
+    breaks = seq(-15, 20, by = 5)
+  ) +
+  scale_x_discrete(expand = expansion(mult = c(0.1, 0.1)))
+
+# -----------------------------
+# π plot
+# -----------------------------
+p_PI <- ggplot(
+  PI_long,
+  aes(
+    x = Region,
+    y = Mean,
+    colour = Scenario,
+    group = Scenario
+  )
+) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    colour = "black"
+  ) +
+  geom_line(linewidth = 0.5) +
+  geom_point(size = 1.5) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Relative change in π (%) over 20 years",
+    title = "Nucleotide diversity (π)"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 11),
+    plot.title = element_text(
+      size = 11,
+      face = "plain"
+    ),
+    legend.position = "none",
+    legend.key.width = unit(1.5, "cm")
+  ) + 
+  scale_colour_manual(values = scenario_cols) + 
+  scale_y_continuous(
+    breaks = seq(-15, 20, by = 5)
+  ) + 
+  scale_x_discrete(expand = expansion(mult = c(0.1, 0.1)))
+
+
+# Extract legend
+legend <- get_legend(
+  p_PI +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(), 
+      legend.key.width = unit(1.5, "cm"),
+      legend.text = element_text(size = 10, margin = margin(l = -10))
+    ) + 
+    guides(
+      colour = guide_legend(
+        override.aes = list(
+          linetype = 0, 
+          shape = 16, 
+          size = 4
+        )
+      )
+    )
+)
+
+# Convert legend to a plot
+legend_plot <- wrap_elements(legend)
+
+legend_plot
+combined <- (
+  p_HO /
+    p_PI /
+    legend_plot
+) +
+  plot_layout(
+    heights = c(1, 1, 0.10)
+  )
+
+
+ggsave(
+  file.path(base_dir, "HO_PI_lineplot.png"),
+  combined,
+  width = 7.09,
+  height = 7,
+  units = "in",
+  dpi = 600
+)
+
+

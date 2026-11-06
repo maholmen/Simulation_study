@@ -417,7 +417,7 @@ HO_long$Region <- factor(
   HO_long$Region,
   levels = c("ORF","Locus","500Kb","2Mb"),
   labels = c(
-    "ORF\n(Hₒ=0.30)",
+    "CDS\n(Hₒ=0.30)",
     "Locus\n(Hₒ=0.36)",
     "±250 Kb\n(Hₒ=0.31)",
     "±1 Mb\n(Hₒ=0.32)"
@@ -433,7 +433,7 @@ PI_long$Region <- factor(
   PI_long$Region,
   levels = c("ORF","Locus","500Kb","2Mb"),
   labels = c(
-    "ORF\n(π=0.007 x 10⁻³)",
+    "CDS\n(π=0.007 x 10⁻³)",
     "Locus\n(π=1.01 x 10⁻³)",
     "±250 Kb\n(π=0.95 x 10⁻³)",
     "±1 Mb\n(π=1.20 x 10⁻³)"

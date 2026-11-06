@@ -306,6 +306,20 @@ Pi_tables <- process_metric(
 
 
 ## PLOTTING 
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(readr)
+library(patchwork)
+library(cowplot)
+
+base_dir <- "/mnt/project/CWD_reindeer/maholmen_phd/simulations/SCENARIOS/test7"
+
+# --------------------------------------------------
+# READ TABLES
+# --------------------------------------------------
+
 HO <- read.csv(
   file.path(base_dir, "HO_relative_change.csv"),
   check.names = FALSE
@@ -384,6 +398,7 @@ scenario_cols <- c(
 )
 
 
+
 scenario_order <- c(
   "None",
   "WT Hom ♂",
@@ -455,7 +470,7 @@ p_HO <- ggplot(
   labs(
     x = "",
     y = "Relative change in Hₒ (%) over 20 years",
-    title = "Observed heterozygosity (Hₒ)"
+    title = "(a) Observed heterozygosity (Hₒ)"
   ) +
   theme(
     panel.grid = element_blank(),
@@ -472,6 +487,8 @@ p_HO <- ggplot(
     breaks = seq(-15, 20, by = 5)
   ) +
   scale_x_discrete(expand = expansion(mult = c(0.1, 0.1)))
+
+p_HO
 
 # -----------------------------
 # π plot
@@ -496,7 +513,7 @@ p_PI <- ggplot(
   labs(
     x = "",
     y = "Relative change in π (%) over 20 years",
-    title = "Nucleotide diversity (π)"
+    title = "(b) Nucleotide diversity (π)"
   ) +
   theme(
     panel.grid = element_blank(),
@@ -514,6 +531,9 @@ p_PI <- ggplot(
     breaks = seq(-15, 20, by = 5)
   ) + 
   scale_x_discrete(expand = expansion(mult = c(0.1, 0.1)))
+
+p_PI
+
 
 
 # Extract legend
@@ -539,7 +559,6 @@ legend <- get_legend(
 # Convert legend to a plot
 legend_plot <- wrap_elements(legend)
 
-legend_plot
 combined <- (
   p_HO /
     p_PI /
@@ -553,10 +572,21 @@ combined <- (
 ggsave(
   file.path(base_dir, "HO_PI_lineplot.png"),
   combined,
-  width = 7.09,
-  height = 7,
-  units = "in",
+  width = 18,
+  height = 20,
+  units = "cm",
   dpi = 600
 )
+
+ggsave(
+  file.path(base_dir, "HO_PI_lineplot.pdf"),
+  combined,
+  device = cairo_pdf,
+  width = 18,
+  height = 20,
+  units = "cm"
+)
+
+
 
 

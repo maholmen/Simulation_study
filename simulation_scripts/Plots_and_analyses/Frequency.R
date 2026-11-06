@@ -71,18 +71,19 @@ combined_df$allele <- factor(combined_df$allele, levels = allele_order)
 # ---- RENAME SCENARIOS (PUT IT HERE ✅) ----
 
 combined_df$Scenario <- recode(combined_df$Scenario,
-                           "S1"  = "None",
-                           "S2"  = "WT Hom ♂",
-                           "S3"  = "WT All ♂",
-                           "S4"  = "WT Hom ♀♂",
-                           "S5"  = "WT All ♀♂",
-                           "S6"  = "↓♂",
-                           "S8"  = "↓N",
-                           "S13" = "↓N = 116",
-                           "S14" = "WT+225Y Hom ♂"
+                               "S1"  = "(a) None",
+                               "S2"  = "(b) WT Hom ♂",
+                               "S3"  = "(c) WT All ♂",
+                               "S4"  = "(d) WT Hom ♀♂",
+                               "S5"  = "(e) WT All ♀♂",
+                               "S6"  = "(f) ↓♂",
+                               "S8"  = "(g) ↓N",
+                               "S13" = "(h) ↓N = 116", 
+                               "S14" = "WT+225Y Hom ♂"
 )
 
-scenario_order <- c("None", "WT Hom ♂", "WT All ♂", "WT Hom ♀♂", "WT All ♀♂","↓♂", "↓N", "↓N = 116", "WT+225Y Hom ♂")
+scenario_order <- c("(a) None", "(b) WT Hom ♂", "(c) WT All ♂", "(d) WT Hom ♀♂",
+                    "(e) WT All ♀♂","(f) ↓♂", "(g) ↓N", "(h) ↓N = 116", "WT+225Y Hom ♂")
 
 
 combined_df$Scenario <- factor(combined_df$Scenario, levels = scenario_order)
@@ -129,18 +130,25 @@ plot_spaghetti <- ggplot(
     panel.spacing = unit(0.7, "lines"),
     panel.border = element_blank()
   ) +
-    guides(colour = guide_legend(nrow = 1))
-
-
-plot_spaghetti
+  guides(colour = guide_legend(nrow = 1))
 
 # Save
 ggsave(
+  file.path(base_dir, "Combined_spaghetti_mean.pdf"),
+  plot_spaghetti,
+  device = cairo_pdf,
+  width = 18,
+  height = 21,
+  units = "cm"
+)
+
+ggsave(
   file.path(base_dir, "Combined_spaghetti_mean.png"),
   plot_spaghetti,
-  width = 12,
-  height = 14,
-  dpi = 300
+  width = 18,
+  height = 21,
+  units = "cm",
+  dpi = 600
 )
 
 ### tables

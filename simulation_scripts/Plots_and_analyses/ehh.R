@@ -1,5 +1,3 @@
-# This code was developed with substantial assistance from OpenAI's ChatGPT. The code was reviewed and adapted by the author.
-
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -16,16 +14,12 @@ scenario_dirs <- list.dirs(base_dir, recursive = FALSE, full.names = TRUE)
 # ---------------------------------------------------------
 all_ehh <- list()
 
-# ---------------------------------------------------------
-# LOOP THROUGH SCENARIOS
-# ---------------------------------------------------------
-all_ehh <- list()
 
 for (scenario_dir in scenario_dirs) {
-
+  
   scenario <- basename(scenario_dir)
   message("Processing ", scenario)
-
+  
   # -------------------------
   # Load file
   # -------------------------
@@ -34,34 +28,34 @@ for (scenario_dir in scenario_dirs) {
     pattern = "^Simulation_results_.*\\.rds$",
     full.names = TRUE
   )
-
+  
   if (length(rds_file) == 0) next
-
+  
   Simulation_results <- readRDS(rds_file[1])
-
+  
   # -------------------------
   # Extract EHH data
   # -------------------------
   start_ehh_df <- Simulation_results$start_ehh_df
   end_ehh_df   <- Simulation_results$all_ehh_df
-
+  
   # ✅ skip if missing
   if (is.null(start_ehh_df) || is.null(end_ehh_df)) {
     message("Skipping ", scenario, ": missing EHH data")
     next
   }
-
+  
   start_ehh_df$time <- "start"
   end_ehh_df$time   <- "end"
-
+  
   ehh_all <- dplyr::bind_rows(start_ehh_df, end_ehh_df)
-
+  
   # ✅ check required columns BEFORE pivot
   if (!all(c("ihh_ancestral", "ihh_derived") %in% colnames(ehh_all))) {
     message("Skipping ", scenario, ": missing ihh columns")
     next
   }
-
+  
   # -------------------------
   # FIX derived / ancestral swap
   # -------------------------
@@ -69,7 +63,7 @@ for (scenario_dir in scenario_dirs) {
   tmp <- ehh_all$ihh_ancestral[is_674]
   ehh_all$ihh_ancestral[is_674] <- ehh_all$ihh_derived[is_674]
   ehh_all$ihh_derived[is_674]   <- tmp
-
+  
   # -------------------------
   # Rename IDs
   # -------------------------
@@ -84,9 +78,9 @@ for (scenario_dir in scenario_dirs) {
     "marker_674"  = "PRNP codon 225",
     "sel_1" = "S1", "sel_2" = "S2", "sel_3" = "S3", "sel_4" = "S4"
   )
-
+  
   ehh_all$ID <- id_map[ehh_all$ID]
-
+  
   # -------------------------
   # Convert to long format
   # -------------------------
@@ -96,10 +90,10 @@ for (scenario_dir in scenario_dirs) {
       names_to  = "allele",
       values_to = "ihh"
     )
-
+  
   # Add scenario
   ehh_long$Scenario <- scenario
-
+  
   all_ehh[[scenario]] <- ehh_long
 }
 
@@ -121,7 +115,7 @@ ehh_long <- ehh_long %>%
 
 # rename allele
 ehh_long$allele <- recode(ehh_long$allele,
-                          "ihh_ancestral" = "Wildtype",
+                          "ihh_ancestral" = "Reference",
                           "ihh_derived"   = "Alternative"
 )
 
@@ -150,7 +144,7 @@ scenario_order <- c("None", "WT Hom ♂", "WT All ♂", "WT Hom ♀♂", "WT All
 
 ehh_long$Scenario <- factor(ehh_long$Scenario, levels = scenario_order)
 
-allele_order <- c("Wildtype", "Alternative")
+allele_order <- c("Reference", "Alternative")
 
 ehh_long$allele <- factor(ehh_long$allele, levels = allele_order)
 
@@ -169,7 +163,192 @@ ehh_wide <- ehh_wide %>%
     change_rel = (end - start) / start
   )
 
-library(dplyr)
+
+change_tests <- ehh_wide %>%
+  group_by(Scenario, ID, allele) %>%
+  summarise(
+    p_value = if (n() > 1) t.test(change)$p.value else NA_real_,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    significance = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      TRUE            ~ ""
+    )
+  )
+
+
+ehh_plot_data <- ehh_wide %>%
+  filter(grepl("^PRNP", ID)) %>%
+  left_join(change_tests, by = c("Scenario", "ID", "allele")) 
+
+
+
+ehh_plot_data$ID <- str_remove(ehh_plot_data$ID, "^PRNP ")
+ehh_plot_data$ID <- str_replace(ehh_plot_data$ID, "^codon", "Codon")
+
+ID_order <- c("Codon 2", "Codon 129", "Codon 169", "Codon 176", "Codon 225")
+ehh_plot_data$ID <- factor(ehh_plot_data$ID, levels = ID_order)
+
+ehh_plot_data <- ehh_plot_data %>%
+  mutate(sig_group = ifelse(p_value < 0.05, "Significant", "Not significant"))
+
+
+ehh_plot_data$log <- ehh_plot_data$change*0.001
+
+panel_labels <- expand.grid(
+  ID = levels(ehh_plot_data$ID),
+  allele = levels(ehh_plot_data$allele)
+)
+
+panel_labels$label <- c(
+  "(a)", "(b)", "(c)",
+  "(d)", "(e)", "(f)",
+  "(g)", "(h)", "(i)", "(j)"
+)
+
+
+EHH <- ggplot(ehh_plot_data,
+              aes(x = Scenario, y = log, fill)) +
+  coord_cartesian(ylim = c(-100, 160)) +
+  geom_violin(trim = TRUE, alpha = 0.3, fill = "grey") +
+  stat_summary(
+    fun = mean,
+    geom = "crossbar",
+    color = "black", 
+    width = 0.3,
+    linewidth = 0.3
+  ) +
+  facet_grid(ID ~ allele) +
+  geom_text(
+    aes(label = significance, y = 120),
+    vjust = 0.8,
+    stat = "summary",
+    fun = max,
+    size = 3
+  ) +
+  geom_text(
+    data = panel_labels,
+    aes(x = -Inf, y = Inf, label = label),
+    hjust = -0.3,
+    vjust = -0.5,
+    fontface = "plain",
+    size = 3,
+    inherit.aes = FALSE
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1, size = 10),
+    strip.text = element_text(size = 10),
+    strip.text.x = element_text(
+      margin = margin(b = 12)),
+    panel.spacing = unit(0.3, "lines"),
+    panel.spacing.y = unit(1.2, "lines"),
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 10)
+    
+  ) +
+  labs(
+    x = "",
+    y = "Δ iHH × 10⁻³",
+    title = ""
+  ) + 
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    linewidth = 0.5
+  ) + 
+  scale_y_continuous(
+    breaks = seq(-80, 120, by = 40)
+  )
+
+EHH
+
+ggsave(
+  file.path(base_dir, "EHH.png"),
+  EHH,
+  width = 18,
+  height = 25,
+  units = "cm",
+  dpi = 600
+)
+
+ggsave(
+  file.path(base_dir, "EHH.pdf"),
+  EHH,
+  device = cairo_pdf,
+  width = 18,
+  height = 25,
+  units = "cm"
+)
+
+
+summary_tbl <- ehh_plot_data %>% 
+  group_by(Scenario, ID, allele) %>%
+  summarise(
+    mean_change = mean(change, na.rm = TRUE),
+    sd_change = sd(change, na.rm = TRUE),
+    mean_rel = mean(change_rel, na.rm = TRUE) * 100,
+    p_value = first(p_value),
+    significance = first(significance),
+    .groups = "drop"
+  )
+
+summary_tbl <- summary_tbl %>%
+  mutate(
+    Delta_iHH =
+      sprintf("%.1f ± %.1f",
+              mean_change,
+              sd_change),
+    Relative_change =
+      sprintf("%.1f%%",
+              mean_rel)
+  )
+
+
+########### bottleneck scenario ###################
+
+# ---------------------------------------------------------
+# CLEAN & FORMAT
+# ---------------------------------------------------------
+
+# rename allele
+ehh_reduced$allele <- recode(ehh_reduced$allele,
+                             "ihh_ancestral" = "Wildtype",
+                             "ihh_derived"   = "Alternative"
+)
+
+# remove NA
+ehh_reduced <- ehh_reduced %>% filter(!is.na(ihh))
+
+# ---------------------------------------------------------
+# RENAME SCENARIO (same as before)
+# ---------------------------------------------------------
+
+ehh_reduced$Scenario <- recode(ehh_reduced$Scenario,
+                               "S13"  = "↓N = 116")
+
+
+allele_order <- c("Wildtype", "Alternative")
+
+ehh_reduced$allele <- factor(ehh_reduced$allele, levels = allele_order)
+
+# ---------------------------------------------------------
+# CALCULATE CHANGE ✅
+# ---------------------------------------------------------
+ehh_wide <- ehh_reduced %>%
+  group_by(replicate, Scenario, ID, allele, time) %>%
+  summarise(ihh = mean(ihh), .groups = "drop") %>%
+  pivot_wider(names_from = time, values_from = ihh) %>%
+  mutate(change = end - start)
+
 
 change_tests <- ehh_wide %>%
   group_by(Scenario, ID, allele) %>%
@@ -192,9 +371,8 @@ ehh_plot_data <- ehh_wide %>%
 
 ehh_plot_data <- ehh_wide %>%
   filter(grepl("^PRNP", ID)) %>%
-  left_join(change_tests, by = c("Scenario", "ID", "allele"))
+  left_join(change_tests, by = c("Scenario", "ID", "allele")) 
 
-library(stringr)
 
 ehh_plot_data$ID <- str_remove(ehh_plot_data$ID, "^PRNP ")
 ehh_plot_data$ID <- str_replace(ehh_plot_data$ID, "^codon", "Codon")
@@ -205,62 +383,44 @@ ehh_plot_data$ID <- factor(ehh_plot_data$ID, levels = ID_order)
 ehh_plot_data <- ehh_plot_data %>%
   mutate(sig_group = ifelse(p_value < 0.05, "Significant", "Not significant"))
 
-
-ehh_plot_data$log <- ehh_plot_data$change*0.001
-
-EHH <- ggplot(ehh_plot_data,
-       aes(x = Scenario, y = log, fill)) +
- coord_cartesian(ylim = c(-100, 160)) +
-  geom_violin(trim = TRUE, alpha = 0.8, fill = "grey") +
-  stat_summary(
-    fun = mean,
-    geom = "crossbar",
-    color = "black",
-    width = 0.5,
-    linewidth = 0.3
-  ) +
-  facet_grid(ID ~ allele) +
-  geom_text(
-    aes(label = significance, y = 140),
-    stat = "summary",
-    fun = max,
-    size = 5
-  ) +
-  theme_bw() +
-  theme(
-    axis.text.x = element_text(angle = 30, hjust = 1, size = 12),
-    strip.text = element_text(size = 14),
-    panel.spacing = unit(0.3, "lines"),
-    legend.position = "none",
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    strip.background = element_blank(),
-    axis.title.y = element_text(size = 14),
-    axis.text.y = element_text(size = 12)
-
-  ) +
-  labs(
-    x = "",
-    y = "Δ iHH × 10⁻³",
-    title = ""
-  ) +
-  geom_hline(
-    yintercept = 0,
-    linetype = "dashed",
-    linewidth = 0.5
-  ) +
-  scale_y_continuous(
-    breaks = seq(-80, 120, by = 20)
+summary_tbl_scenario13 <- ehh_plot_data %>% 
+  group_by(Scenario, ID, allele) %>%
+  summarise(
+    mean_change = mean(change, na.rm = TRUE),
+    sd_change = sd(change, na.rm = TRUE),
+    mean_rel = mean(change_rel, na.rm = TRUE) * 100,
+    p_value = first(p_value),
+    significance = first(significance),
+    .groups = "drop"
   )
 
-ggsave(
-  file.path(base_dir, "EHH.png"),
-  EHH,
-  width = 18,
-  height = 25,
-  units = "cm",
-  dpi = 600
-)
+summary_tbl_scenario13 <- summary_tbl_scenario13 %>%
+  mutate(
+    Delta_iHH =
+      sprintf("%.1f ± %.1f",
+              mean_change,
+              sd_change),
+    Relative_change =
+      sprintf("%.1f%%",
+              mean_rel)
+  )
+
+
+
+summary_table <- ehh_plot_data %>%
+  group_by(ID, allele) %>%
+  summarise(
+    mean_start = mean(start, na.rm = TRUE),
+    sd_start   = sd(start, na.rm = TRUE),
+    mean_end   = mean(end, na.rm = TRUE),
+    sd_end     = sd(end, na.rm = TRUE),
+    mean_change = mean(change, na.rm = TRUE),
+    sd_change   = sd(change, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(ID, allele)
+
+
 
 
 

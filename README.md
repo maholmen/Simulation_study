@@ -1,1 +1,2 @@
 Scripts used for study. In the study alleles are referred to as WT, 225Y, 176D and 2M129S169M, in scripts these are referred to as A, B, D and E, respectively. 
+CDS and ORF were used interchangeably during preparation, in the published article CDS is used, however in the scripts ORF will sometimes occur. For many scripts, markers are used as parameters, these are referred to as variants in the published study.

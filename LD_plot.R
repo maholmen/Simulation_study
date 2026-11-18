@@ -4,7 +4,7 @@ library(patchwork)
 
 # Read LD data
 ld <- read.table(
-  "LD_PRNP_R2_0.1.ld",
+  "LD_PRNP.ld",
   header = TRUE,
   stringsAsFactors = FALSE
 )
